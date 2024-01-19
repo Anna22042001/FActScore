@@ -54,11 +54,11 @@ class FactScorer(object):
         elif "bloomz" in model_name:
             self.lm = CLM("inst-bloomz-7b1",
                           model_dir=os.path.join(model_dir, "inst-bloomz-7b1"),
-                          cache_file=os.path.join(cache_dir, "inst-bloomz-7b1_en-1.pkl"))
+                          cache_file=os.path.join(cache_dir, "inst-bloomz-7b1-"+lang+".pkl")) # change cache of bloomz frequently
         elif "mistral" in model_name:
             self.lm = CLM("inst-Mistral-7B-Instruct-v0.2",
                           model_dir=os.path.join(model_dir, "inst-Mistral-7B-Instruct-v0.2"),
-                          cache_file=os.path.join(cache_dir, "inst-Mistral-7B-Instruct-v0.2.pkl"))
+                          cache_file=os.path.join(cache_dir, "inst-Mistral-7B-Instruct-v0.2-"+lang+".pkl"))
         elif "ChatGPT" in model_name:
             self.lm = OpenAIModel("ChatGPT",
                                   cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),
