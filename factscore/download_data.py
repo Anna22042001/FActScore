@@ -154,7 +154,6 @@ if __name__ == '__main__':
     # Comment out after downloading data for the first time
     download_file("1IseEAflk1qqV0z64eM60Fs3dTgnbgiyt", "demos.zip", args.data_dir)
     download_file("1enz1PxwxeMr4FRF9dtpCPXaZQCBejuVF", "data.zip", args.data_dir)
-    download_file("1mekls6OGOKLmt7gYtHs0WGf5oTamTNat", "enwiki-20230401.db", args.data_dir)
 
     print(args.model_HF_path.split("/")[-1])
     if args.model_HF_path:
@@ -165,5 +164,4 @@ if __name__ == '__main__':
 
     # move the files to the data directory; comment out after the first download
     subprocess.run(["mv demos %s" % args.data_dir], shell=True)
-    subprocess.run(["mv enwiki-20230401.db %s" % args.data_dir], shell=True)
 
