@@ -233,14 +233,24 @@ class FactScorer(object):
                 if passages == None or len(passages) == 0:
                     decisions.append({"atom": atom, "is_supported": bool(False)})
                     continue
-                definition = "Answer the question about {} based on the given context.\n\n".format(topic)
-                context = ""
-                for psg_idx, psg in enumerate(reversed(passages)):
-                    context += "Title: {}\nText: {}\n\n".format(psg["title"], psg["text"].replace("<s>", "").replace("</s>", ""))
-                definition += context.strip()
-                if not definition[-1] in string.punctuation:
-                    definition += "."
-                prompt = "{}\n\nInput: {} True or False? \nOutput: ".format(definition.strip(), atom.strip())
+                if "bloomz" in self.model_name:
+                    definition = "Answer the question about {} based on the given context.\n\nText: ".format(topic)
+                    context = ""
+                    for psg_idx, psg in enumerate(reversed(passages)):
+                        context += "{}\n".format(psg["text"].replace("<s>", "").replace("</s>", ""))
+                    definition += context.strip()        
+                    if not definition[-1] in string.punctuation:
+                        definition += "."
+                    prompt = "{}\n\nQuestion: {} True or False? \nAnswer: ".format(definition.strip(), atom.strip())
+                else:
+                    definition = "Answer the question about {} based on the given context.\n\n".format(topic)
+                    context = ""
+                    for psg_idx, psg in enumerate(reversed(passages)):
+                        context += "Title: {}\nText: {}\n\n".format(psg["title"], psg["text"].replace("<s>", "").replace("</s>", ""))
+                    definition += context.strip()
+                    if not definition[-1] in string.punctuation:
+                        definition += "."
+                    prompt = "{}\n\nInput: {} True or False? \nOutput: ".format(definition.strip(), atom.strip())
 
                 if cost_estimate:
                     if cost_estimate == "consider_cache" and (prompt.strip() + "_0") not in self.lm.cache_dict:
