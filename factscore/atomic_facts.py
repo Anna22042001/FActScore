@@ -22,7 +22,7 @@ class AtomicFactGenerator(object):
     def __init__(self, key_path, demon_dir, model_dir, cache_dir, gpt3_cache_file=None):
         self.nlp = spacy.load("en_core_web_sm")
         self.is_bio = True
-        self.demon_path = os.path.join(demon_dir, "demons.json" if self.is_bio else "demons_complex.json")
+        self.demon_path = os.path.join(demon_dir, "demons_ru.json" if self.is_bio else "demons_complex.json")
 
         self.openai_lm = CLM("inst-Mistral-7B-Instruct-v0.2",
                           model_dir=os.path.join(model_dir, "inst-Mistral-7B-Instruct-v0.2"),
