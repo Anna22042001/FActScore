@@ -1,3 +1,4 @@
+# factscore calculation with new prompting method for bloomz (qa_prompt)
 import argparse
 import string
 import json
@@ -25,7 +26,7 @@ class FactScorer(object):
                  cost_estimate="consider_cache",
                  abstain_detection_type=None,
                  batch_size=256):
-        assert model_name in ["retrieval+mistral","retrieval+bloomz", "retrieval+bloomz+npm", "retrieval+llama", "retrieval+llama+npm", "retrieval+mistral+npm", "retrieval+ChatGPT", "npm", "retrieval+ChatGPT+npm"]
+        assert model_name in ["retrieval+mistral","retrieval+bloomz", "retrieval+bloomz+npm", "retrieval+llama", "retrieval+llama+npm", "retrieval+ChatGPT", "npm", "retrieval+ChatGPT+npm"]
         self.model_name = model_name
 
         self.db = {}
@@ -53,11 +54,11 @@ class FactScorer(object):
         elif "bloomz" in model_name:
             self.lm = CLM("inst-bloomz-7b1",
                           model_dir=os.path.join(model_dir, "inst-bloomz-7b1"),
-                          cache_file=os.path.join(cache_dir, "inst-bloomz-7b1-"+lang+".pkl")) # change cache of bloomz frequently
+                          cache_file=os.path.join(cache_dir, "inst-bloomz-7b1_en-1.pkl"))
         elif "mistral" in model_name:
             self.lm = CLM("inst-Mistral-7B-Instruct-v0.2",
                           model_dir=os.path.join(model_dir, "inst-Mistral-7B-Instruct-v0.2"),
-                          cache_file=os.path.join(cache_dir, "inst-Mistral-7B-Instruct-v0.2-"+lang+".pkl"))
+                          cache_file=os.path.join(cache_dir, "inst-Mistral-7B-Instruct-v0.2.pkl"))
         elif "ChatGPT" in model_name:
             self.lm = OpenAIModel("ChatGPT",
                                   cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),
@@ -175,7 +176,7 @@ class FactScorer(object):
             self.af_generator.save_cache()
 
         respond_ratio = np.mean([facts is not None for facts in atomic_facts])
-
+        
         if "ChatGPT" in self.model_name:
             # estimate the total cost of response generation
             total_words = 0
@@ -232,15 +233,16 @@ class FactScorer(object):
                 if passages == None or len(passages) == 0:
                     decisions.append({"atom": atom, "is_supported": bool(False)})
                     continue
-                definition = "Answer the question about {} based on the given context.\n\n".format(topic)
+                definition = "Answer the question about {} based on the given context.\n\nText: ".format(topic)
                 context = ""
                 for psg_idx, psg in enumerate(reversed(passages)):
-                    context += "Title: {}\nText: {}\n\n".format(psg["title"], psg["text"].replace("<s>", "").replace("</s>", ""))
+                    context += "{}\n".format(psg["text"].replace("<s>", "").replace("</s>", ""))
                 definition += context.strip()
+                                
                 if not definition[-1] in string.punctuation:
                     definition += "."
-                prompt = "{}\n\nInput: {} True or False? \nOutput: ".format(definition.strip(), atom.strip())
-
+                prompt = "{}\n\nQuestion: {} True or False? \nAnswer: ".format(definition.strip(), atom.strip())
+                
                 if cost_estimate:
                     if cost_estimate == "consider_cache" and (prompt.strip() + "_0") not in self.lm.cache_dict:
                         total_words += len(prompt.split())
@@ -349,8 +351,8 @@ if __name__ == '__main__':
                         default=None)
 
     args = parser.parse_args()
-    print(args)
     logging.critical(args)
+    print(args)
     logging.basicConfig(format='%(asctime)s - %(name)s - %(message)s',
                         datefmt='%m/%d/%Y %H:%M:%S',
                         level=logging.ERROR if args.print_rate_limit_error else logging.CRITICAL)
@@ -395,7 +397,6 @@ if __name__ == '__main__':
         logging.critical("FActScore w/o length penalty = %.1f%%" % (100*out["init_score"]))
     logging.critical("Respond ratio = %.1f%%" % (100*out["respond_ratio"]))
     logging.critical("# Atomic facts per valid response = %.1f" % (out["num_facts_per_response"]))
-    # print("OUTTTTTTTTTT",out)
     # Save out as a json file
     if args.use_atomic_facts:
         with open(args.input_path.replace(".jsonl", args.model_name+f"_factscore_output_provided_facts.json"), 'w') as f:

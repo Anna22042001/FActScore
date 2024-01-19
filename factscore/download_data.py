@@ -68,33 +68,49 @@ def smart_tokenizer_and_embedding_resize(special_tokens_dict, tokenizer, model):
 def recover_instruct_llama(path_raw, output_path, device="cpu", test_recovered_model=False):
     """Heavily adapted from https://github.com/tatsu-lab/stanford_alpaca/blob/main/weight_diff.py."""
 
-    model_raw = transformers.AutoModelForCausalLM.from_pretrained(
+    # model_raw = transformers.AutoModelForCausalLM.from_pretrained(
+    #     path_raw,
+    #     device_map={"": torch.device(device)},
+    #     torch_dtype=torch.float32,
+    #     low_cpu_mem_usage=True,
+    #     access_token = "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"
+    # )
+    # model_recovered = transformers.AutoModelForCausalLM.from_pretrained(
+    #     "kalpeshk2011/instruct-llama-7b-wdiff",
+    #     device_map={"": torch.device(device)},
+    #     torch_dtype=torch.float32,
+    #     low_cpu_mem_usage=True,
+    #     access_token = "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"
+    # )
+
+    # tokenizer_raw = transformers.AutoTokenizer.from_pretrained(path_raw)
+    # if tokenizer_raw.pad_token is None:
+    #     smart_tokenizer_and_embedding_resize(
+    #         special_tokens_dict=dict(pad_token="[PAD]"),
+    #         model=model_raw,
+    #         tokenizer=tokenizer_raw,
+    #     )
+    # tokenizer_recovered = transformers.AutoTokenizer.from_pretrained("kalpeshk2011/instruct-llama-7b-wdiff")
+
+    # state_dict_recovered = model_recovered.state_dict()
+    # state_dict_raw = model_raw.state_dict()
+    # for key in tqdm.tqdm(state_dict_recovered):
+    #     state_dict_recovered[key].add_(state_dict_raw[key])
+    
+    model_recovered = transformers.AutoModelForCausalLM.from_pretrained(
         path_raw,
         device_map={"": torch.device(device)},
         torch_dtype=torch.float32,
         low_cpu_mem_usage=True,
     )
-    model_recovered = transformers.AutoModelForCausalLM.from_pretrained(
-        "kalpeshk2011/instruct-llama-7b-wdiff",
-        device_map={"": torch.device(device)},
-        torch_dtype=torch.float32,
-        low_cpu_mem_usage=True,
-    )
-
-    tokenizer_raw = transformers.AutoTokenizer.from_pretrained(path_raw)
-    if tokenizer_raw.pad_token is None:
+    
+    tokenizer_recovered = transformers.AutoTokenizer.from_pretrained(path_raw)
+    if tokenizer_recovered.pad_token is None:
         smart_tokenizer_and_embedding_resize(
             special_tokens_dict=dict(pad_token="[PAD]"),
-            model=model_raw,
-            tokenizer=tokenizer_raw,
-        )
-    tokenizer_recovered = transformers.AutoTokenizer.from_pretrained("kalpeshk2011/instruct-llama-7b-wdiff")
-
-    state_dict_recovered = model_recovered.state_dict()
-    state_dict_raw = model_raw.state_dict()
-    for key in tqdm.tqdm(state_dict_recovered):
-        state_dict_recovered[key].add_(state_dict_raw[key])
-
+            model=model_recovered,
+            tokenizer=tokenizer_recovered)
+    
     if output_path is not None:
         model_recovered.save_pretrained(output_path)
         tokenizer_recovered.save_pretrained(output_path)
@@ -122,7 +138,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_dir',
                         type=str,
                         default=".cache/factscore")
-    parser.add_argument('--llama_7B_HF_path',
+    parser.add_argument('--model_HF_path',
                         type=str,
                         default=None)
 
@@ -133,18 +149,21 @@ if __name__ == '__main__':
     
     if not os.path.exists(args.data_dir):
         os.makedirs(args.data_dir)
+    print(args.model_dir)
 
+    # Comment out after downloading data for the first time
     download_file("1IseEAflk1qqV0z64eM60Fs3dTgnbgiyt", "demos.zip", args.data_dir)
     download_file("1enz1PxwxeMr4FRF9dtpCPXaZQCBejuVF", "data.zip", args.data_dir)
     download_file("1mekls6OGOKLmt7gYtHs0WGf5oTamTNat", "enwiki-20230401.db", args.data_dir)
 
-    if args.llama_7B_HF_path:
-        recover_instruct_llama(args.llama_7B_HF_path, os.path.join(args.model_dir, "inst-llama-7B"))
+    print(args.model_HF_path.split("/")[-1])
+    if args.model_HF_path:
+        recover_instruct_llama(args.model_HF_path, os.path.join(args.model_dir, "inst-{}".format(args.model_HF_path.split("/")[-1])), test_recovered_model= True)
 
-    # download the roberta_stopwords.txt file
+    # download the roberta_stopwords.txt file; comment out after the first download
     subprocess.run(["wget https://raw.githubusercontent.com/shmsw25/FActScore/main/roberta_stopwords.txt"], shell=True)
 
-    # move the files to the data directory
+    # move the files to the data directory; comment out after the first download
     subprocess.run(["mv demos %s" % args.data_dir], shell=True)
     subprocess.run(["mv enwiki-20230401.db %s" % args.data_dir], shell=True)
 

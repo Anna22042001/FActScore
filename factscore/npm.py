@@ -134,7 +134,7 @@ class NPM(LM):
                     continue
                 if input_id in [0, 2] or input_id in self.stopwords:
                     continue
-                batch.append(self.decode(question_input_ids[:i] + [self.mask_id] + question_input_ids[i+1:])) //
+                batch.append(self.decode(question_input_ids[:i] + [self.mask_id] + question_input_ids[i+1:]))
                 gt_input_ids.append(input_id)
             for (prob, vector), gt_input_id in zip(self.encode(batch, gt_input_ids=gt_input_ids), gt_input_ids):
                 triples.append((prob, vector, gt_input_id))

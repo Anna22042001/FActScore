@@ -44,8 +44,9 @@ class DocDB(object):
         self.connection.close()
 
     def build_db(self, db_path, data_path):
-        from transformers import RobertaTokenizer
-        tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
+        from transformers import AutoTokenizer
+        # original: "roberta-large", change to mt5-large for multilingual factscore 
+        tokenizer = AutoTokenizer.from_pretrained('google/mt5-large')
         
         titles = set()
         output_lines = []
@@ -102,6 +103,9 @@ class DocDB(object):
         results = cursor.fetchall()
         results = [r for r in results]
         cursor.close()
+        if results == None or len(results) == 0:
+            print(f"`topic` in your data ({title}) is likely to be not a valid title in the DB.")
+            return None
         assert results is not None and len(results)==1, f"`topic` in your data ({title}) is likely to be not a valid title in the DB."
         results = [{"title": title, "text": para} for para in results[0][0].split(SPECIAL_SEPARATOR)]
         assert len(results)>0, f"`topic` in your data ({title}) is likely to be not a valid title in the DB."
@@ -110,13 +114,15 @@ class DocDB(object):
 class Retrieval(object):
 
     def __init__(self, db, cache_path, embed_cache_path,
-                 retrieval_type="gtr-t5-large", batch_size=None):
+                retrieval_type="distiluse-base-multilingual-cased-v2", batch_size=None):
+        #distiluse-base-multilingual-cased-v2
+        #gtr-t5-large
         self.db = db
         self.cache_path = cache_path
         self.embed_cache_path = embed_cache_path
         self.retrieval_type = retrieval_type
         self.batch_size = batch_size
-        assert retrieval_type=="bm25" or retrieval_type.startswith("gtr-")
+        # assert retrieval_type=="bm25" or retrieval_type.startswith("gtr-")
         
         self.encoder = None
         self.load_cache()
@@ -151,7 +157,7 @@ class Retrieval(object):
                 self.cache.update(new_cache)
             
             with open(self.cache_path, "w") as f:
-                json.dump(self.cache, f)
+                json.dump(self.cache, f, ensure_ascii=False)
         
         if self.add_n_embed > 0:
             if os.path.exists(self.embed_cache_path):
@@ -196,6 +202,8 @@ class Retrieval(object):
         
         if cache_key not in self.cache:
             passages = self.db.get_text_from_title(topic)
+            if passages == None:
+                return None
             if self.retrieval_type=="bm25":
                 self.cache[cache_key] = self.get_bm25_passages(topic, retrieval_query, passages, k)
             else:

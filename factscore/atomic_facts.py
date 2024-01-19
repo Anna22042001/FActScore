@@ -6,24 +6,27 @@ import string
 import spacy
 import sys
 import nltk
-import openai
+# import openai
 from rank_bm25 import BM25Okapi
 import os
 import time
 from nltk.tokenize import sent_tokenize
+from factscore.clm import CLM
 
-from factscore.openai_lm import OpenAIModel
+# from factscore.openai_lm import OpenAIModel
 
 nltk.download("punkt")
 
 
 class AtomicFactGenerator(object):
-    def __init__(self, key_path, demon_dir, gpt3_cache_file=None):
+    def __init__(self, key_path, demon_dir, model_dir, cache_dir, gpt3_cache_file=None):
         self.nlp = spacy.load("en_core_web_sm")
         self.is_bio = True
         self.demon_path = os.path.join(demon_dir, "demons.json" if self.is_bio else "demons_complex.json")
 
-        self.openai_lm = OpenAIModel("InstructGPT", cache_file=gpt3_cache_file, key_path=key_path)
+        self.openai_lm = CLM("inst-Mistral-7B-Instruct-v0.2",
+                          model_dir=os.path.join(model_dir, "inst-Mistral-7B-Instruct-v0.2"),
+                          cache_file=os.path.join(cache_dir, "inst-Mistral-7B-Instruct-v0.2-gf.pkl"))
 
         # get the demos
         with open(self.demon_path, 'r') as f:
@@ -135,7 +138,11 @@ class AtomicFactGenerator(object):
             return total_words_estimate
         else:
             for prompt in prompts:
-                output, _ = self.openai_lm.generate(prompt)
+                output, _ = self.openai_lm.generate(prompt, max_sequence_length=2048, max_output_length=256)
+                print("------------------------------------")
+                print("PROMPT", prompt)
+                print("OUTPUT", output)
+                print("------------------------------------")
                 atoms[prompt_to_sent[prompt]] = text_to_sentences(output)
 
             for key, value in demons.items():
@@ -153,7 +160,10 @@ def best_demos(query, bm25, demons_sents, k):
 
 # transform InstructGPT output into sentences
 def text_to_sentences(text):
+    text = text.split("\n\n")[0]
     sentences = text.split("- ")[1:]
+    sentences = [sent.replace("<s>", "").replace("</s>", "") for sent in sentences]
+    print("SENTENCES", sentences)
     sentences = [sent.strip()[:-1] if sent.strip()[-1] == '\n' else sent.strip() for sent in sentences]
     if len(sentences) > 0: 
         if sentences[-1][-1] != '.':
