@@ -2,13 +2,11 @@
 # add "--knowledge_source {db_name} \" when use factscore in non-English (e.g. "--knowledge_source "viwiki_150" \" for Vietnamese) 
 # add --use_atomic_facts and replace "$lang\_mistral_generated_facts" with "$lang\_provided_facts" in DIR_OUTPUTS_BLOOMZ 
 # when using author provided or translated facts.
-# INPUTS=(
-#   "alpaca-7B" "alpaca-13B" "alpaca" "ChatGPT" "dolly-12b" "gpt4"
-#   "InstructGPT" "mpt-7b" "pythia-12b" "stablelm-alpha-7b" "vicuna-7b" "vicuna-13b"
-# )
 INPUTS=(
-  "InstructGPT"
+  "alpaca-7B" "alpaca-13B" "alpaca" "ChatGPT" "dolly-12b" "gpt4"
+  "InstructGPT" "mpt-7b" "pythia-12b" "stablelm-alpha-7b" "vicuna-7b" "vicuna-13b"
 )
+
 lang="en"
 DIR_INPUTS="/home/kimvu/FActScore/data/labeled/${lang}_instances"
 FMT_JSON=".jsonl"
@@ -29,7 +27,7 @@ for input in "${INPUTS[@]}"; do
         --n_samples 150 > "$path_output"
 done
 
-## Mistral
+# ## Mistral
 ## for non_English input, npm is not available, replace "retrieval+mistral+npm" with "retrieval+mistral" 
 ## and all_reasoning_retrieval_mistral_npm_ with all_reasoning_retrieval_mistral_ in DIR_OUTPUTS_MISTRAL
 

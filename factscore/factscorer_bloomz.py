@@ -11,7 +11,7 @@ from factscore.abstain_detection import is_response_abstained
 from factscore.atomic_facts import AtomicFactGenerator
 from factscore.clm import CLM
 from factscore.npm import NPM
-# from factscore.openai_lm import OpenAIModel
+from factscore.openai_lm import OpenAIModel
 from factscore.retrieval import DocDB, Retrieval
 
 class FactScorer(object):

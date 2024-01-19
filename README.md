@@ -38,7 +38,7 @@ python -m spacy download en_core_web_sm
 ## Download the data
 
 ```bash
-python -m factscore.download_data --llama_7B_HF_path "llama-7B"
+python -m factscore.download_data --model_HF_path "llama-7B" --data_dir ".cache/factscore" --model_dir ".cache/factscore"
 ```
 
 This command does the following.
