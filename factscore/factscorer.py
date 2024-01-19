@@ -34,7 +34,7 @@ class FactScorer(object):
         self.batch_size = batch_size # batch size for retrieval
         self.openai_key = openai_key
         self.abstain_detection_type = abstain_detection_type
-
+        self.lang = lang
         self.data_dir = data_dir
         self.cache_dir = cache_dir
         self.model_dir = model_dir
@@ -142,6 +142,7 @@ class FactScorer(object):
                                                         demon_dir=os.path.join(self.data_dir, "demos"),
                                                         model_dir=self.model_dir,
                                                         cache_dir=self.cache_dir,
+                                                        lang=self.lang,
                                                         gpt3_cache_file=os.path.join(self.cache_dir, "InstructGPT.pkl"))
 
             # estimate the total cost of atomic fact generation
