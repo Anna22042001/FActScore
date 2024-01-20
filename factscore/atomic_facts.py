@@ -164,7 +164,7 @@ def text_to_sentences(text):
     sentences = text.split("- ")[1:]
     sentences = [sent.replace("<s>", "").replace("</s>", "") for sent in sentences]
     print("SENTENCES", sentences)
-    sentences = [sent.strip()[:-1] if sent.strip()[-1] == '\n' else sent.strip() for sent in sentences]
+    sentences = [sent.strip() for sent in sentences]
     if len(sentences) > 0: 
         if sentences[-1][-1] != '.':
             sentences[-1] = sentences[-1] + '.' 
