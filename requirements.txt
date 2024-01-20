@@ -6,6 +6,5 @@ openai
 rank_bm25
 spacy
 sentencepiece 
-# sentence_transformers>=2.2.2
-# transformers>=4.29.2
-# torch>=>=2.0.0
+spacy
+protobuf
