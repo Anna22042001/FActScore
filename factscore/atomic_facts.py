@@ -17,13 +17,22 @@ from factscore.clm import CLM
 
 nltk.download("punkt")
 
-
+dict_lang = {"cs": "czech", "da": "danish", "nl": "dutch", "en": "english", 'et': 'estonian', 'fi': 'finnish', 'fr': 'french', 'el': 'greek', 'it': 'italian', 'no': 'norwegian', 'pl': 'polish', 'pt': 'portuguese', 'ru': 'russian', 'sl': 'slovene', 'es': 'spanish', 'sv': 'swedish', 'tr': 'turkish'}
 class AtomicFactGenerator(object):
     def __init__(self, key_path, demon_dir, model_dir, cache_dir, lang = "en", gpt3_cache_file=None):
         self.nlp = spacy.load("en_core_web_sm")
         self.is_bio = True
         self.demon_path = os.path.join(demon_dir, "demons_"+ lang + ".json" if self.is_bio else "demons_complex.json")
-
+        self.lang = lang
+        self.max_output_length = 256
+        self.max_sequence_length = 2048
+        if lang in ["ar", "hi"]:
+            self.max_output_length = 1024
+            self.max_sequence_length = 6024
+        elif lang != "en":
+            self.max_output_length = 512
+            self.max_sequence_length = 4096
+            
         self.openai_lm = CLM("inst-Mistral-7B-Instruct-v0.2",
                           model_dir=os.path.join(model_dir, "inst-Mistral-7B-Instruct-v0.2"),
                           cache_file=os.path.join(cache_dir, "inst-Mistral-7B-Instruct-v0.2-gf.pkl"))
@@ -50,15 +59,33 @@ class AtomicFactGenerator(object):
         for para_idx, paragraph in enumerate(paragraphs):
             if para_idx > 0 :
                 para_breaks.append(len(sentences))
-
+            if self.lang == "zh-cn":
+                sents = paragraph.split("。")
+                sents = [e+"。" for e in sents if len(e) > 2]
+                sentences += sents
+                continue
+            elif self.lang == "ar":
+                sents = paragraph.split(".")
+                sents = [e+"." for e in sents if len(e) > 2]
+                sentences += sents
+                continue
+            elif self.lang == "hi":
+                sents = paragraph.split("।")
+                sents = [e+"।" for e in sents if len(e) > 2]
+                sentences += sents
+                continue
             initials = detect_initials(paragraph)
-
-            curr_sentences = sent_tokenize(paragraph)
-            curr_sentences_2 = sent_tokenize(paragraph)
+            if self.lang in dict_lang:
+                curr_sentences = sent_tokenize(paragraph, dict_lang[self.lang])
+                curr_sentences_2 = sent_tokenize(paragraph, dict_lang[self.lang])
+            else:
+                curr_sentences = sent_tokenize(paragraph)
+                curr_sentences_2 = sent_tokenize(paragraph)
 
             curr_sentences = fix_sentence_splitter(curr_sentences, initials)
             curr_sentences_2 = fix_sentence_splitter(curr_sentences_2, initials)
-
+            curr_sentences = [e for e in curr_sentences if len(e) > 2]
+            curr_sentences_2 = [e for e in curr_sentences_2 if len(e) > 2]
             # checking this, just to ensure the crediability of the sentence splitter fixing algorithm
             assert curr_sentences == curr_sentences_2, (paragraph, curr_sentences, curr_sentences_2)
 
@@ -138,12 +165,12 @@ class AtomicFactGenerator(object):
             return total_words_estimate
         else:
             for prompt in prompts:
-                output, _ = self.openai_lm.generate(prompt, max_sequence_length=2048, max_output_length=256)
+                output, _ = self.openai_lm.generate(prompt, max_sequence_length=self.max_sequence_length, max_output_length=self.max_output_length)
                 print("------------------------------------")
                 print("PROMPT", prompt)
                 print("OUTPUT", output)
                 print("------------------------------------")
-                atoms[prompt_to_sent[prompt]] = text_to_sentences(output)
+                atoms[prompt_to_sent[prompt]] = text_to_sentences(output, self.lang)
 
             for key, value in demons.items():
                 if key not in atoms:
@@ -159,15 +186,22 @@ def best_demos(query, bm25, demons_sents, k):
 
 
 # transform InstructGPT output into sentences
-def text_to_sentences(text):
+def text_to_sentences(text, lang = "en"):
     text = text.split("\n\n")[0]
     sentences = text.split("- ")[1:]
     sentences = [sent.replace("<s>", "").replace("</s>", "") for sent in sentences]
     print("SENTENCES", sentences)
-    sentences = [sent.strip() for sent in sentences]
+    sentences = [sent.strip()[:-1] if sent.strip()[-1] == '\n' else sent.strip() for sent in sentences]
     if len(sentences) > 0: 
-        if sentences[-1][-1] != '.':
-            sentences[-1] = sentences[-1] + '.' 
+        if lang == "zh-cn":
+            if sentences[-1][-1] != "。":
+                sentences[-1] = sentences[-1] + "。" 
+        elif lang == "hi":
+            if sentences[-1][-1] != "।":
+                sentences[-1] = sentences[-1] + "।"
+        else:
+            if sentences[-1][-1] != '.':
+                sentences[-1] = sentences[-1] + '.' 
     else:
         sentences = []
     return sentences
