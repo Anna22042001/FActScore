@@ -64,11 +64,6 @@ class AtomicFactGenerator(object):
                 sents = [e+"。" for e in sents if len(e) > 2]
                 sentences += sents
                 continue
-            elif self.lang == "ar":
-                sents = paragraph.split(".")
-                sents = [e+"." for e in sents if len(e) > 2]
-                sentences += sents
-                continue
             elif self.lang == "hi":
                 sents = paragraph.split("।")
                 sents = [e+"।" for e in sents if len(e) > 2]
@@ -81,7 +76,10 @@ class AtomicFactGenerator(object):
             else:
                 curr_sentences = sent_tokenize(paragraph)
                 curr_sentences_2 = sent_tokenize(paragraph)
-
+                curr_sentences = [e for e in curr_sentences if len(e) > 2]
+                curr_sentences_2 = [e for e in curr_sentences_2 if len(e) > 2]
+                sentences += curr_sentences
+                continue
             curr_sentences = fix_sentence_splitter(curr_sentences, initials)
             curr_sentences_2 = fix_sentence_splitter(curr_sentences_2, initials)
             curr_sentences = [e for e in curr_sentences if len(e) > 2]
