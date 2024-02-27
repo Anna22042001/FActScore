@@ -44,7 +44,7 @@ def perplexity_ai_abstain_detect(generation):
         return False
 
 def generic_abstain_detect(generation):
-    return generation.startswith("I'm sorry") or "provide more" in generation
+    return generation.startswith("I'm sorry") or "provide more" in generation or "InvalidRequestionError" in generation
 
 def is_response_abstained(generation, fn_type):
     if fn_type == "perplexity_ai":

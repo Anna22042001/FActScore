@@ -143,7 +143,7 @@ class FactScorer(object):
                                                         model_dir=self.model_dir,
                                                         cache_dir=self.cache_dir,
                                                         lang=self.lang,
-                                                        gpt3_cache_file=os.path.join(self.cache_dir, "InstructGPT.pkl"))
+                                                        gpt3_cache_file=os.path.join(self.cache_dir, "GPT3.5-turbo(1).pkl"))
 
             # estimate the total cost of atomic fact generation
             total_words = 0
@@ -156,6 +156,7 @@ class FactScorer(object):
                 topics = tqdm(topics)
 
             atomic_facts = []
+            sent2facts = []
             for topic, gen in zip(topics, generations):
                 # optionally, first detect if the response is abstained
                 response_abstained = is_response_abstained(gen, self.abstain_detection_type)
@@ -164,6 +165,8 @@ class FactScorer(object):
                     continue
                 # continue only when the response is not abstained
                 curr_afs, _ = self.af_generator.run(gen)
+                sent2fact = curr_afs.copy()
+                sent2facts.append(sent2fact)
                 curr_afs = [fact for _, facts in curr_afs for fact in facts]
                 if len(curr_afs)==0:
                     atomic_facts.append(None)
@@ -213,6 +216,7 @@ class FactScorer(object):
 
         out = {
                "model": self.model_name,
+               "sent2facts": sent2facts,
                "score": np.mean(scores),
                "respond_ratio": respond_ratio,
                "decisions": decisions,
@@ -258,39 +262,40 @@ class FactScorer(object):
                     elif cost_estimate == "ignore_cache":
                         total_words += len(prompt.split())
                     continue
-                output = self.lm.generate(prompt)
-                print("CONTEXT", prompt)
-                print("OUTPUT", output)
-                # explain_prompt = prompt + output[0][1:-4] + ".\nWhy? Explanation:"
-                # print("EXPLAIN_CONTEXT", explain_prompt)
-                # output2 = self.lm.generate(explain_prompt)
-                # print("EXPLAIN", output2)
-                if type(output[1])==np.ndarray:
-                    # when logits are available
-                    logits = np.array(output[1])
-                    if "bloomz" in self.model_name:
-                        true_score = logits[22096]
-                        false_score = logits[27092]
-                    elif "llama" in self.model_name:
-                        true_score = logits[5852]
-                        false_score = logits[7700]
-                    elif "mistral" in self.model_name:
-                        true_score = logits[6110]
-                        false_score = logits[8250]
-                    is_supported = true_score > false_score
-                    print(is_supported, true_score, false_score)
-                else:
-                    # when logits are unavailable
-                    generated_answer = output[0].lower()
-                    if "true" in generated_answer or "false" in generated_answer:
-                        if "true" in generated_answer and "false" not in generated_answer:
-                            is_supported = True
-                        elif "false" in generated_answer and "true" not in generated_answer:
-                            is_supported = False
-                        else:
-                            is_supported = generated_answer.index("true") > generated_answer.index("false")
-                    else:
-                        is_supported = all([keyword not in generated_answer.lower().translate(str.maketrans("", "", string.punctuation)).split() for keyword in ["not", "cannot", "unknown", "information"]])
+                is_supported = True
+                # output = self.lm.generate(prompt)
+                # print("CONTEXT", prompt)
+                # print("OUTPUT", output)
+                # # explain_prompt = prompt + output[0][1:-4] + ".\nWhy? Explanation:"
+                # # print("EXPLAIN_CONTEXT", explain_prompt)
+                # # output2 = self.lm.generate(explain_prompt)
+                # # print("EXPLAIN", output2)
+                # if type(output[1])==np.ndarray:
+                #     # when logits are available
+                #     logits = np.array(output[1])
+                #     if "bloomz" in self.model_name:
+                #         true_score = logits[22096]
+                #         false_score = logits[27092]
+                #     elif "llama" in self.model_name:
+                #         true_score = logits[5852]
+                #         false_score = logits[7700]
+                #     elif "mistral" in self.model_name:
+                #         true_score = logits[6110]
+                #         false_score = logits[8250]
+                #     is_supported = true_score > false_score
+                #     print(is_supported, true_score, false_score)
+                # else:
+                #     # when logits are unavailable
+                #     generated_answer = output[0].lower()
+                #     if "true" in generated_answer or "false" in generated_answer:
+                #         if "true" in generated_answer and "false" not in generated_answer:
+                #             is_supported = True
+                #         elif "false" in generated_answer and "true" not in generated_answer:
+                #             is_supported = False
+                #         else:
+                #             is_supported = generated_answer.index("true") > generated_answer.index("false")
+                #     else:
+                #         is_supported = all([keyword not in generated_answer.lower().translate(str.maketrans("", "", string.punctuation)).split() for keyword in ["not", "cannot", "unknown", "information"]])
 
             else:
                 is_supported = True
@@ -408,10 +413,11 @@ if __name__ == '__main__':
     logging.critical("# Atomic facts per valid response = %.1f" % (out["num_facts_per_response"]))
     # print("OUTTTTTTTTTT",out)
     # Save out as a json file
+
     if args.use_atomic_facts:
-        with open(args.input_path.replace(".jsonl", args.model_name+f"_factscore_output_provided_facts.json"), 'w') as f:
+        with open(args.input_path.replace(".jsonl", f"{args.lang}_"+args.model_name+f"_factscore_output_provided_facts.json"), 'w') as f:
             f.write(json.dumps(out, ensure_ascii=False) + "\n")
     else:
-        with open(args.input_path.replace(".jsonl", args.model_name+f"_factscore_output_gen_facts.json"), 'w') as f:
+        with open(args.input_path.replace(".jsonl",f"{args.lang}_"+args.model_name+f"_factscore_output_gen_facts.json"), 'w') as f:
             f.write(json.dumps(out, ensure_ascii=False) + "\n")
 

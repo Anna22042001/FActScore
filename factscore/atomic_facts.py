@@ -9,14 +9,34 @@ import nltk
 # import openai
 from rank_bm25 import BM25Okapi
 import os
-import time
 from nltk.tokenize import sent_tokenize
 from factscore.clm import CLM
-
-# from factscore.openai_lm import OpenAIModel
-
+from factscore.openai_lm import OpenAIModel
+from factscore.gemini_lm import GeminiModel
+from peft import PeftModel, PeftConfig
 nltk.download("punkt")
-
+safety_settings = [
+    {
+        "category": "HARM_CATEGORY_DANGEROUS",
+        "threshold": "BLOCK_NONE",
+    },
+    {
+        "category": "HARM_CATEGORY_HARASSMENT",
+        "threshold": "BLOCK_NONE",
+    },
+    {
+        "category": "HARM_CATEGORY_HATE_SPEECH",
+        "threshold": "BLOCK_NONE",
+    },
+    {
+        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "threshold": "BLOCK_NONE",
+    },
+    {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_NONE",
+    },
+]
 dict_lang = {"cs": "czech", "da": "danish", "nl": "dutch", "en": "english", 'et': 'estonian', 'fi': 'finnish', 'fr': 'french', 'el': 'greek', 'it': 'italian', 'no': 'norwegian', 'pl': 'polish', 'pt': 'portuguese', 'ru': 'russian', 'sl': 'slovene', 'es': 'spanish', 'sv': 'swedish', 'tr': 'turkish'}
 class AtomicFactGenerator(object):
     def __init__(self, key_path, demon_dir, model_dir, cache_dir, lang = "en", gpt3_cache_file=None):
@@ -26,17 +46,20 @@ class AtomicFactGenerator(object):
         self.lang = lang
         self.max_output_length = 256
         self.max_sequence_length = 2048
-        if lang in ["ar", "hi"]:
+        if lang in ["ar", "hi", "bn"]:
             self.max_output_length = 1024
             self.max_sequence_length = 6024
         elif lang != "en":
             self.max_output_length = 512
             self.max_sequence_length = 4096
             
-        self.openai_lm = CLM("inst-Mistral-7B-Instruct-v0.2",
-                          model_dir=os.path.join(model_dir, "inst-Mistral-7B-Instruct-v0.2"),
-                          cache_file=os.path.join(cache_dir, "inst-Mistral-7B-Instruct-v0.2-gf.pkl"))
-
+        # self.lm = CLM("inst-bangla-llama-7b-instruct-v0.1",
+        #                   model_dir=os.path.join(model_dir, "inst-bangla-llama-7b-instruct-v0.1"),
+        #                   cache_file=os.path.join(cache_dir, "inst-bangla-llama-7b-instruct-v0.1(1).pkl"))
+        # self.lm.load_model()
+        # self.lm = PeftModel.from_pretrained(self.lm.model, "Rashik24/Mistral-Instruct-Bangla")
+        self.lm = OpenAIModel("ChatGPT-gpt4", cache_file="/home/kimvu/projects/factscore/GPT-4-extract-facts.pkl", key_path=key_path)
+        # self.gemini_lm = GeminiModel("Gemini", cache_file=os.path.join(cache_dir, "Gemini-pro.pkl"), key_path=key_path)
         # get the demos
         with open(self.demon_path, 'r') as f:
             self.demons = json.load(f)
@@ -45,7 +68,7 @@ class AtomicFactGenerator(object):
         self.bm25 = BM25Okapi(tokenized_corpus)
 
     def save_cache(self):
-        self.openai_lm.save_cache()
+        self.lm.save_cache()
 
     def run(self, generation, cost_estimate=None):
         """Convert the generation into a set of atomic facts. Return a total words cost if cost_estimate != None."""
@@ -64,7 +87,7 @@ class AtomicFactGenerator(object):
                 sents = [e+"。" for e in sents if len(e) > 2]
                 sentences += sents
                 continue
-            elif self.lang == "hi":
+            elif self.lang in ["hi", "bn"]:
                 sents = paragraph.split("।")
                 sents = [e+"।" for e in sents if len(e) > 2]
                 sentences += sents
@@ -117,7 +140,7 @@ class AtomicFactGenerator(object):
         # the new para_breaks should be identical to the original para_breaks
         if self.is_bio:
             atomic_facts_pairs, para_breaks = postprocess_atomic_facts(atomic_facts_pairs, list(para_breaks), self.nlp)
-
+        # print("atomic_facts_pairs", atomic_facts_pairs)
         return atomic_facts_pairs, para_breaks
 
 
@@ -157,13 +180,15 @@ class AtomicFactGenerator(object):
         if cost_estimate:
             total_words_estimate = 0
             for prompt in prompts:
-                if cost_estimate == "consider_cache" and (prompt.strip() + "_0") in self.openai_lm.cache_dict:
+                if cost_estimate == "consider_cache" and (prompt.strip() + "_0") in self.lm.cache_dict:
                     continue
                 total_words_estimate += len(prompt.split())
             return total_words_estimate
         else:
             for prompt in prompts:
-                output, _ = self.openai_lm.generate(prompt, max_sequence_length=self.max_sequence_length, max_output_length=self.max_output_length)
+                # output, _ = self.lm.generate(prompt, max_sequence_length=self.max_sequence_length, max_output_length=self.max_output_length) # for open-source model.
+                output, _ = self.lm.generate(prompt)
+                # output = self.gemini_lm.generate(prompt)
                 print("------------------------------------")
                 print("PROMPT", prompt)
                 print("OUTPUT", output)
@@ -188,7 +213,7 @@ def text_to_sentences(text, lang = "en"):
     text = text.split("\n\n")[0]
     sentences = text.split("- ")[1:]
     sentences = [sent.replace("<s>", "").replace("</s>", "") for sent in sentences]
-    print("SENTENCES", sentences)
+    # print("SENTENCES", sentences)
     sentences = [sent.strip()[:-1] if sent.strip()[-1] == '\n' else sent.strip() for sent in sentences]
     if len(sentences) > 0: 
         if lang == "zh-cn":
@@ -377,11 +402,17 @@ def fix_sentence_splitter(curr_sentences, initials):
 
 
 def main():
-    generator = AtomicFactGenerator("api.key", "demos", gpt3_cache_dir=None)
-    atomic_facts, para_breaks = generator.run("Thierry Henry (born 17 August 1977) is a French professional football coach, pundit, and former player. He is considered one of the greatest strikers of all time, and one the greatest players of the Premier League history. He has been named Arsenal F.C's greatest ever player.\n\nHenry made his professional debut with Monaco in 1994 before signing for defending Serie A champions Juventus. However, limited playing time, coupled with disagreements with the club's hierarchy, led to him signing for Premier League club Arsenal for £11 million in 1999.")
+    # self.af_generator = AtomicFactGenerator(key_path=self.openai_key,
+    #                                                     demon_dir=os.path.join(self.data_dir, "demos"),
+    #                                                     model_dir=self.model_dir,
+    #                                                     cache_dir=self.cache_dir,
+    #                                                     lang=self.lang,
+    #                                                     gpt3_cache_file=os.path.join(self.cache_dir, "InstructGPT.pkl"))
+    generator = AtomicFactGenerator(model_dir="/home/kimvu/projects/factscore", cache_dir="/home/kimvu/projects/factscore", key_path="/home/kimvu/projects/open_ai_key.txt", demon_dir="/home/kimvu/projects/factscore/demos", gpt3_cache_file="/home/kimvu/projects/factscore/InstructGPT.pkl")
+    atomic_facts, para_breaks = generator.run("Thierry Henry (born 17 August 1978) is a French professional football coach, pundit, and former player. He is considered one of the greatest strikers of all time, and one the greatest players of the Premier League history. He has been named Arsenal F.C's greatest ever player.\n\nHenry made his professional debut with Monaco in 1994 before signing for defending Serie A champions Juventus. However, limited playing time, coupled with disagreements with the club's hierarchy, led to him signing for Premier League club Arsenal for £11 million in 1999.")
 
-    print(atomic_facts)
-    print(para_breaks)
+    # print(atomic_facts)
+    # print(para_breaks)
 
 if __name__ == "__main__":
     main()

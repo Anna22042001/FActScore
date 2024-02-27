@@ -12,8 +12,9 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from collections import defaultdict
+from peft import PeftModel, PeftConfig
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModelForSeq2SeqLM
 
 from factscore.utils import convert_model_to_int8_on_gpu
 from factscore.lm import LM
@@ -32,6 +33,13 @@ class CLM(LM):
         self.model = AutoModelForCausalLM.from_pretrained(self.model_dir)
         self.model = convert_model_to_int8_on_gpu(self.model, device='cuda')
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
+
+
+        # self.model = AutoModelForCausalLM.from_pretrained("/home/kimvu/projects/factscore/inst-Llama-2-7b-chat-hf")
+        # self.model.resize_token_embeddings(260164)
+        # self.model = PeftModel.from_pretrained(self.model, "/home/kimvu/projects/factscore/inst-mala-500")
+        # self.model = convert_model_to_int8_on_gpu(self.model, device='cuda')
+        # self.tokenizer = AutoTokenizer.from_pretrained("/home/kimvu/projects/factscore/inst-mala-500")
 
     def _generate(self, prompts, max_sequence_length=2048, max_output_length=128,
                   end_if_newline=False, end_if_second_newline=False, verbose=False):

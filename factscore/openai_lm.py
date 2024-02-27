@@ -21,7 +21,14 @@ class OpenAIModel(LM):
         assert os.path.exists(key_path), f"Please place your OpenAI APT Key in {key_path}."
         with open(key_path, 'r') as f:
             api_key = f.readline()
-        openai.api_key = api_key.strip()
+        # openai.api_key = api_key.strip()
+        openai.api_type = ""
+        openai.api_base = ""
+        openai.api_key = ""
+        openai.api_version = ""
+        # openai.api_key = api_key.strip()
+        # openai.api_version = ""
+        print("DONE SET UP")
         self.model = self.model_name
 
     def _generate(self, prompt, max_sequence_length=2048, max_output_length=128):
@@ -43,29 +50,47 @@ class OpenAIModel(LM):
             # Get the output from the response
             output = response["choices"][0]["text"]
             return output, response
+        elif self.model_name == "ChatGPT-gpt4":
+            # Construct the prompt send to ChatGPT
+            message = [{"role": "user", "content": prompt}]
+            # Call API
+            response = call_ChatGPT(message, model_name="gpt-4-0125", temp=self.temp, max_len=max_sequence_length)
+            # Get the output from the response
+            output = response["choices"][0]["message"]["content"]
+            return output, response
+        elif self.model_name == "ChatGPT-gpt4-fs":
+            # Construct the prompt send to ChatGPT
+            # Call API
+            response = call_GPT3(prompt, model_name="gpt-4-0125", temp=self.temp)
+            # Get the output from the response
+            output = response["choices"][0]["text"]
+            return output, response
         else:
             raise NotImplementedError()
 
-def call_ChatGPT(message, model_name="gpt-3.5-turbo", max_len=1024, temp=0.7, verbose=False):
+def call_ChatGPT(message, model_name="gpt-3.5-turbo-0125", max_len=1024, temp=0.7, verbose=False):
     # call GPT-3 API until result is provided and then return it
     response = None
     received = False
     num_rate_errors = 0
     while not received:
         try:
-            response = openai.ChatCompletion.create(model=model_name,
+            time.sleep(7)
+            response = openai.ChatCompletion.create(engine=model_name,
                                                     messages=message,
                                                     max_tokens=max_len,
                                                     temperature=temp)
             received = True
-        except:
-            # print(message)
+        except Exception as error:
+            print(error)
             num_rate_errors += 1
             error = sys.exc_info()[0]
             if error == openai.error.InvalidRequestError:
                 # something is wrong: e.g. prompt too long
                 logging.critical(f"InvalidRequestError\nPrompt passed in:\n\n{message}\n\n")
-                assert False
+                tmp_dict = {}
+                tmp_dict["choices"] = [{"message": {"content": "InvalidRequestionError: The response was filtered due to the prompt triggering Azure OpenAI's content management policy. We apologize for not being able to process your request"}}]
+                return tmp_dict
             
             logging.error("API error: %s (%d). Waiting %dsec" % (error, num_rate_errors, np.power(2, num_rate_errors)))
             time.sleep(np.power(2, num_rate_errors))
@@ -79,7 +104,7 @@ def call_GPT3(prompt, model_name="text-davinci-003", max_len=512, temp=0.7, num_
     num_rate_errors = 0
     while not received:
         try:
-            response = openai.Completion.create(model=model_name,
+            response = openai.Completion.create(engine=model_name,
                                                 prompt=prompt,
                                                 max_tokens=max_len,
                                                 temperature=temp,

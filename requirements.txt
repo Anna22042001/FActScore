@@ -8,3 +8,4 @@ spacy
 sentencepiece 
 spacy
 protobuf
+peft

@@ -35,11 +35,11 @@ def get_memory_footprint(model, return_buffers=True):
     return mem
 
 
-def ـreplace_linear_with_int8linear(model, modules_to_not_convert="lm_head"):
+def ـreplace_linear_with_int8linear(model, modules_to_not_convert=["lm_head"]):
     for name, module in model.named_children():
         ـreplace_linear_with_int8linear(module, modules_to_not_convert)
 
-        if isinstance(module, torch.nn.Linear) and name != modules_to_not_convert:
+        if isinstance(module, torch.nn.Linear) and name not in modules_to_not_convert: 
             model._modules[name] = QuantizedLinearInt8(linear_layer=module)
     return
 
@@ -79,6 +79,7 @@ class QuantizedLinearInt8(torch.nn.Module):
 
     def forward(self, x):
         weight = self.weight.half() * self.weight_scale[:, None]
+        x = x.to(weight.dtype)
         return torch.nn.functional.linear(x, weight, self.bias)
 
 
