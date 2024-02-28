@@ -133,7 +133,7 @@ class FactScorer(object):
         else:
             assert type(topics)==type(generations)==list, "`topics` and `generations` should be lists."
             assert len(topics)==len(generations), "`topics` and `generations` should have the same length"
-
+        sent2facts = []
         if atomic_facts is not None:
             assert len(topics)==len(atomic_facts), "`topics` and `atomic_facts` should have the same length"
         else:
@@ -156,7 +156,7 @@ class FactScorer(object):
                 topics = tqdm(topics)
 
             atomic_facts = []
-            sent2facts = []
+            
             for topic, gen in zip(topics, generations):
                 # optionally, first detect if the response is abstained
                 response_abstained = is_response_abstained(gen, self.abstain_detection_type)
